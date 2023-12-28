@@ -12,26 +12,11 @@ import Text.Read
 import Data.List (intersperse)
 import Data.Char (isSpace)
 import Debug.Trace
--------------------------------------------------------------------------------
-{-
-data Location
- = Helmet
- | Torso
- | Pants
- | RightRing
- | LeftRing
- | Belt
- | Scarf
- | Gloves
- | Socks
- | Boots
- | Shirt
--}
+import Classes
 -------------------------------------------------------------------------------
 removeAt :: Int -> [a] -> [a]
 removeAt n xs = let (ys, zs) = splitAt n xs in ys ++ tail zs
 -------------------------------------------------------------------------------
-
 -- ignoring max radiation for now!!
 -------------------------------------------------------------------------------
 tryWearHelmet :: MVar Game -> IO ()
@@ -66,17 +51,6 @@ tryWearItem g i =
       Just _ -> (g, ["You are already wearing a belt."])
     _ -> undefined
 
-
-{-
- case 
- case belt $ player $ g of
-  Nothing -> (g, ["You wrap the belt around your waist."])
-  Just _ -> (g, ["You are already wearing a belt."])
-
--}
-
--- let maxRadiation = (level $ player $ g) * 10
- 
 -------------------------------------------------------------------------------
 tryWearScarf :: MVar Game -> IO ()
 tryWearScarf m = pure ()
@@ -103,51 +77,10 @@ createBelt m = do
  putMVar m (g {rnd = r', nearbyItems = belt:(nearbyItems g)})
  pure ()
 
--- instantiateItem :: (BeginItem, StdGen) -> (Item, StdGen)
-{-
-data BeginItem =
- BeginItem {
-  beginLocation :: Location,
-  beginEnchantments :: [Enchantment],
-  beginDepth :: Int -- the depth at which the item was retrieved (affects rad reduction generation!)
- }
--}
-{-
-do
- g <- takeMVar m
- let r = rnd g
-
- let helmet = Item Helmet (Enchantments [MkEnchantment StrengthBonus 2, MkEnchantment MaxManaBonus 5]) 0
-
- let baseRadiation = itemCost helmet
- let baseRadFactor = 1.0
-
- let (dropRoll :: Double, rnd') = random $ rnd g
-
- let radFactorAddition = (dropRoll * 2) - 1
- let radFactor = (2 ** radFactorAddition)
- let radiation = round ((fromIntegral baseRadiation) * radFactor)
- putMVar m (g {rnd = rnd', nearbyItems = (Item Helmet (Enchantments [MkEnchantment StrengthBonus 2, MkEnchantment MaxManaBonus 5]) radiation):(nearbyItems g)})
- pure ()
--}
-
-
-
-{-main :: IO ()
-main = do
- g <- newStdGen
- stepGame $ MkGame g initialPlayer testMob
--}
-
 
 trim :: String -> String
 trim = f . f
    where f = reverse . dropWhile isSpace
-{-
-handleCommand :: String -> [String]
-handleCommand "heal" = ["\ESC[38;5;254mYou open your hand and cast a healing incantation, healing \ESC[36m"++(show 5)++"\ESC[38;5;254m hp\ESC[0m"]
-handleCommand _ = []
--}
 
 listInventory :: [Item] -> String
 listInventory [] = ""
@@ -157,6 +90,7 @@ handleCommand' :: Game -> String -> (Game, [String])
 handleCommand' game "heal" = (game, ["\ESC[38;5;254mYou open your hand and cast a healing incantation, healing \ESC[36m"++(show 6)++"\ESC[38;5;254m hp\ESC[0m"])
 handleCommand' game "enter" = (game {mobSlain=False, mob = (mob game) {damageTaken=0}}, ["\ESC[38;5;254mYou open a door and enter the next room.\ESC[0m"])
 handleCommand' game "help legendary blademaster" = (game, ["\ESC[38;5;254m"++(legendaryBlademasterHelp)++"\ESC[0m"])
+handleCommand' game "help final form" = (game, ["\ESC[38;5;254m"++(finalFormHelp)++"\ESC[0m"])
 handleCommand' game "help ethereal blade" = (game, ["\ESC[38;5;254m"++(etherealBladeHelp)++"\ESC[0m"])
 handleCommand' game "inventory" = (game, ["\ESC[38;5;254m"++(listInventory $ inventory $ player $ game)++"\ESC[0m"])
 handleCommand' game "eq" = (game, ["\ESC[38;5;254m"++(show $ belt $ player $ game)++"\ESC[0m"])
@@ -164,10 +98,6 @@ handleCommand' game "get belt" =
  if (length $ nearbyItems $ game) == 0
   then  (game, ["\ESC[38;5;254m"++("No such item nearby")++"\ESC[0m"])
   else  (game {player = (player game) {inventory = (head $ nearbyItems $ game):(inventory $ player $ game)}, nearbyItems = tail $ nearbyItems game}, ["\ESC[38;5;254m"++("You pick up a belt.")++"\ESC[0m"])
-
-
--- handleCommand' game "wear belt" = tryWearBelt game
-
 
 handleCommand' game msg =
  if (take 4 msg) == "wear"
@@ -200,14 +130,7 @@ parseMessage "eq" = "\ESC[32meq\ESC[0m OK"
 
 parseMessage msg =
  if take 4 msg == "wear" then "\ESC[32mwear\ESC[0m OK"
-{-
-  then
-   let i :: Maybe Int = readMaybe $ trim $ drop 4 msg in
-   wearItem 
--}
   else "\ESC[31mUnknown command "++msg++"\ESC[0m"
-
---legendaryBlademasterHelp
 
 prompt :: Game -> String
 prompt game =
@@ -244,7 +167,7 @@ drawProgressBar m gameMessages hp width progress = do
   game <- takeMVar m
   let (g', extraMessages) = handleCommands' game (commandQueue game)
   putMVar m g' {commandQueue = []}
-  let messages = {-trace ("in processbar, monster slain is" ++ (show $ mobSlain g')) $-} gameMessages ++ (map parseMessage (commandQueue game)) ++ extraMessages
+  let messages = gameMessages ++ (map parseMessage (commandQueue game)) ++ extraMessages
   if messages == []
    then pure $ prompt g'
    else pure ((concat $ intersperse "\n" messages) ++ "\n" ++ (prompt g'))
@@ -264,42 +187,26 @@ main = do
   putMVar m $ game
   forkIO $ userInput m
   fightMob m
-{-
-  forM_ [1..100] $ \i -> do
-    let progress = fromIntegral i / 100
-    game' <- takeMVar m
-    if mobSlain game' then do
-    putProgress $ drawProgressBar game' [] i 40 progress ++ " " ++ drawPercentage (currentCommand game') progress
-    putMVar m $ game' {commandQueue = []}-- (if length _commands > 0 then tail _commands else _commands)
-    threadDelay 250000
-    else do
-    (game'', messages) <- attacks game'
-    putProgress $ drawProgressBar game'' messages i 40 progress ++ " " ++ drawPercentage (currentCommand game'') progress
-    putMVar m $ game'' {commandQueue = []}-- (if length _commands > 0 then tail _commands else _commands)
-    threadDelay 250000
-  putProgress "The air shimmers as you exit the world."
-  hPutChar stderr '\n'
--}
 
 fightMob :: MVar Game -> IO ()
 fightMob m = do
-    -- let progress = fromIntegral i / 100
     _game' <- takeMVar m
     putMVar m _game'
     if mobSlain _game' then do
     s <- drawProgressBar m [] 0 40 0
     game' <- takeMVar m
     putProgress (s ++ " " ++ drawPercentage (currentCommand game') 0)
-    putMVar m $ game' -- {commandQueue = []}-- (if length _commands > 0 then tail _commands else _commands)
+    putMVar m $ game'
     handleDrop m
     else do
-    (game'', messages) <- attacks _game'
-    _ <- takeMVar m
+    gg <- takeMVar m
+    (game'', messages) <- attacks gg
+--    _ <- takeMVar m
     putMVar m game''
     s <- drawProgressBar m messages 0 40 0
-    putProgress (s ++ " " ++ drawPercentage (currentCommand game'') 0)
-    --g' <- takeMVar m
-    --putMVar m $ g' -- {commandQueue = []}-- (if length _commands > 0 then tail _commands else _commands)
+    ggg <- takeMVar m
+    putProgress (s ++ " " ++ drawPercentage (currentCommand ggg) 0)
+    putMVar m $ ggg
     threadDelay 250000
     fightMob m
 
@@ -314,7 +221,7 @@ idle m = do
  putMVar m g'
  if mobSlain g'
   then {-trace "mob is dead" $-} idle m
-  else {-trace "beginning to fight next mob" $-} fightMob m
+  else trace ("beginning to fight next mob" ++ (show $ player g')) $ fightMob m
 
 
 handleDrop :: MVar Game -> IO ()

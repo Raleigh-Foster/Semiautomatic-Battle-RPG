@@ -7,87 +7,8 @@ module Player where
 -------------------------------------------------------------------------------
 import System.Random
 import Debug.Trace
+import Classes
 -------------------------------------------------------------------------------
-data HelpFile =
- HelpFile {
-  helpName :: String,
-  helpText :: String
- }
--------------------------------------------------------------------------------
-serializeHelp :: HelpFile -> String -- assume help name is shorter than 1 line
-serializeHelp helpFile =
- let lineLength = 84 in
- let lineRemaining = 84 - (length $ helpName helpFile) in
- let initialPadding = div lineRemaining 2 in
- let finalPadding = lineRemaining - initialPadding in
- let title = (replicate initialPadding '-') ++ (helpName helpFile) ++ (replicate finalPadding '-') in
- title ++ "\n" ++ (helpText helpFile) ++ "\n" ++ (replicate lineLength '-')
---
---
-data Classes -- perhaps more later!!
- = Lich
- | Werewolf
- | Vampire
--------------------------------------------------------------------------------
-data LichPowers
- = LegendaryBlademaster -- bonus crit damage
- | EtherealBlade -- summon a 0 rad blade that gains power as you get kills
- | Magician -- bonus mana regeneration and spell power
- | Archmage -- gain access to a variety of spells
- | MartialArtist -- Gain additional attack, damage, and defense
- | ManaShield -- Divert some of your maximum mana to provide additional defense and protection
--------------------------------------------------------------------------------
-legendaryBlademasterHelpFile :: HelpFile
-legendaryBlademasterHelpFile =
- HelpFile {
-  helpName = "Legendary Blademaster",
-  helpText = "Instead of the usual 200% damage, your critical strikes do (200+X)% damage,\nwhere X is your level in this power."
- }
--------------------------------------------------------------------------------
-legendaryBlademasterHelp :: String
-legendaryBlademasterHelp = serializeHelp legendaryBlademasterHelpFile
--------------------------------------------------------------------------------
-etherealBladeHelpFile :: HelpFile
-etherealBladeHelpFile =
- HelpFile {
-  helpName = "Ethereal Blade",
-  helpText =
-   "You gain access to the commands \ESC[32m\'summon ethereal\'\ESC[0m and \ESC[32m\'remove ethereal\'\ESC[0m.\n" ++
-   "Any kill made while wielding your ethereal blade will give it experience as well.\n" ++
-   "Your ethereal blade has damage equal to log_1.2(experience),\n"++
-   "and attack equal to 2 * log_1.2(experience).\n" ++
-   "Note that while you will lose experience on death,\n" ++
-   "your ethereal blade is immune to such loss,\n"++
-   "as it belongs to a separate plane of existence."
- }
--------------------------------------------------------------------------------
-etherealBladeHelp :: String
-etherealBladeHelp = serializeHelp etherealBladeHelpFile
--------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------
--- critical strikes should also bypass resistance! (huge help against very high resist enemies; otherwise on average another 2x approximately)
--------------------------------------------------------------------------------
-data WerewolfPowers
- = NaturalFortitude -- You have additional resistance
- | SupernaturalHealing -- You have additional regeneration
- | ClawsOfAttack -- You have a powerful unarmed attack
- | WolfForm -- Gain massive resistances and damage; prevents use of most item slots (separate inventory).
- | BearSpirit -- Gain bonuses at low health; prevents use of other spirit powers
- | FoxSpirit -- Gain additional attack and defense; prevents use of other spirit powers
- | SharkSpirit -- Your attacks heal you; prevents use of other spirit powers
- | PenguinSpirit -- Gain massive resistances; prevents use of other spirit powers
--------------------------------------------------------------------------------
-data VampirePowers
- = BloodShield -- Your blood power fuels a massive shield
- | ChiropteranHearing -- You have additional defense
- | NightBlade -- Summon a 0 rad blade fueled by your blood power
- | BloodFanatic -- You gain blood power from your kills
- | Infusion -- Divert some of your maximum mana to your damage
- | LivingForm -- Divert some of your mana regen to health regen, prevents training of undead form
- | UndeadForm -- Divert some of your health regen to mana regen, prevents training of living form
--------------------------------------------------------------------------------
-
 data BaseStats =
  BaseStats {
   intelligence :: Int,
@@ -249,17 +170,6 @@ instance Show Item where
   let header = (replicate initialPadding '-') ++ title ++ (replicate finalPadding '-') in
   header ++ "\n" ++ (displayDepth item) ++ (displayEnchantments $ enchantments item) ++ "\n" ++ (displayRadiation item) ++ (replicate lineLength '-')
 -------------------------------------------------------------------------------
-{-
-serializeHelp :: HelpFile -> String -- assume help name is shorter than 1 line
-serializeHelp helpFile =
- let lineLength = 84 in
- let lineRemaining = 84 - (length $ helpName helpFile) in
- let initialPadding = div lineRemaining 2 in
- let finalPadding = lineRemaining - initialPadding in
- let title = (replicate initialPadding '-') ++ (helpName helpFile) ++ (replicate finalPadding '-') in
- title ++ "\n" ++ (helpText helpFile) ++ "\n" ++ (replicate lineLength '-')
--}
--------------------------------------------------------------------------------
 instantiateItem :: (BeginItem, StdGen) -> (Item, StdGen)
 instantiateItem (beginItem, r) =
  let (roll :: Double, r') = random r in
@@ -349,27 +259,6 @@ captureEnchantments (x:xs) baseStats =
 
 modifiedStats :: Player -> BaseStats
 modifiedStats p = captureEnchantments (getEnchantments p) (baseStats p)
-
-{- = IntelligenceBonus
- | WisdomBonus
- | ConstitutionBonus
- | StrengthBonus
- | DexterityBonus
- | WillBonus
- | MaxHpBonus
- | MaxManaBonus
- | HealthRegenBonus
- | ManaRegenBonus
- | ResistBonus
- | DamageBonus
- | DefenseBonus
- | AttackBonus
- | ProtectionBonus
- | AscendancyBonus
- | WeaponDamageBonus
- | WeaponAttackBonus
- | WeaponDefenseBonus
--}
 -------------------------------------------------------------------------------
 getPlayer' :: BaseStats -> Player
 getPlayer' baseStats =
@@ -545,10 +434,10 @@ testMob =
 -------------------------------------------------------------------------------
 computeAccuracyAttack :: Player -> Player -> Double
 computeAccuracyAttack attacker defender =
- let attack = fromIntegral $ getAttack $ baseStats $ attacker in
- let defense = fromIntegral $ getDefense $ baseStats $ defender in
- if attack == 0 && defense == 0 then 0.5 else
- attack / (attack + defense)
+ let a = fromIntegral $ attack attacker in -- getAttack $ baseStats $ attacker in
+ let d = fromIntegral $ defense defender in -- getDefense $ baseStats $ defender in
+ if a+d == 0 then 0.5 else
+ a / (a + d)
 -------------------------------------------------------------------------------
 computeAccuracySpell :: Player -> Player -> Double
 computeAccuracySpell caster defender =
@@ -559,10 +448,10 @@ computeAccuracySpell caster defender =
 -------------------------------------------------------------------------------
 computeDamage :: Player -> Player -> Double
 computeDamage attacker defender =
- let damage = fromIntegral $ getDamage $ baseStats $ attacker in
- let resistance = fromIntegral $ getResist $ baseStats $ defender in
- if damage == 0 && resistance == 0 then 0.5 else
- (damage / (damage + resistance)) * damage
+ let d = fromIntegral $ damage attacker in -- getDamage $ baseStats $ attacker in
+ let r = fromIntegral $ resist defender in -- getResist $ baseStats $ defender in
+ if d+r == 0 then 0.5 else
+ (d / (d + r)) * d
 -------------------------------------------------------------------------------
 computePower :: Player -> Player -> Double
 computePower attacker defender =
