@@ -8,94 +8,78 @@ module Player where
 import System.Random
 import Debug.Trace
 import Classes
+import Stats
+import Enchantment
+import Item
+import Equipment
 -------------------------------------------------------------------------------
-data BaseStats =
- BaseStats {
-  intelligence :: Int,
-  wisdom :: Int,
-  constitution :: Int,
-  strength :: Int,
-  dexterity :: Int,
-  will :: Int
- } deriving Show
+--関数
+emptyBuffedStats :: ModifiedStats -> BuffedStats
+emptyBuffedStats modifiedStats =
+ BuffedStats {
+  buffedIntelligence = modifiedIntelligence modifiedStats,
+  buffedWisdom = modifiedWisdom modifiedStats,
+  buffedConstitution = modifiedConstitution modifiedStats,
+  buffedStrength = modifiedStrength modifiedStats,
+  buffedDexterity = modifiedDexterity modifiedStats,
+  buffedWill = modifiedWill modifiedStats,
+  buffedMaxHp = 0,
+  buffedMaxMana = 0,
+  buffedHealthRegen = 0,
+  buffedManaRegen = 0,
+  buffedResist = 0,
+  buffedDamage = 0,
+  buffedDefense = 0,
+  buffedAttack = 0
+ }
 -------------------------------------------------------------------------------
-data Location
- = Helmet
- | Torso
- | Pants
- | RightRing
- | LeftRing
- | Belt
- | Scarf
- | Gloves
- | Socks
- | Boots
- | Shirt
- deriving Show
+--関数
+getBuffedStats :: ModifiedStats -> BuffedStats
+getBuffedStats modifiedStats =
+ BuffedStats {
+  buffedIntelligence = buffedIntelligence,
+  buffedWisdom = buffedWisdom,
+  buffedConstitution = buffedConstitution,
+  buffedStrength = buffedStrength,
+  buffedDexterity = buffedDexterity,
+  buffedWill = buffedWill,
+  buffedMaxHp = buffedMaxHp,
+  buffedMaxMana = buffedMaxMana,
+  buffedHealthRegen = buffedHealthRegen,
+  buffedManaRegen = buffedManaRegen,
+  buffedResist = buffedResist,
+  buffedDamage = buffedDamage,
+  buffedDefense = buffedDefense,
+  buffedAttack = buffedAttack
+ }
+ where
+  buffedIntelligence = undefined
+  buffedWisdom = undefined
+  buffedConstitution = undefined
+  buffedStrength = undefined
+  buffedDexterity = undefined
+  buffedWill = undefined
+  buffedMaxHp = undefined
+  buffedMaxMana = undefined
+  buffedHealthRegen = undefined
+  buffedManaRegen = undefined
+  buffedResist = undefined
+  buffedDamage = undefined
+  buffedDefense = undefined
+  buffedAttack = undefined
 -------------------------------------------------------------------------------
-data EnchantmentType
- = IntelligenceBonus
- | WisdomBonus
- | ConstitutionBonus
- | StrengthBonus
- | DexterityBonus
- | WillBonus
- | MaxHpBonus
- | MaxManaBonus
- | HealthRegenBonus
- | ManaRegenBonus
- | ResistBonus
- | DamageBonus
- | DefenseBonus
- | AttackBonus
- | ProtectionBonus
- | AscendancyBonus
- | WeaponDamageBonus
- | WeaponAttackBonus
- | WeaponDefenseBonus
- deriving Show
+getFinalStats :: BuffedStats -> FinalStats
+getFinalStats stats = FinalStats {
+  finalMaxHp = (buffedMaxHp stats) + (10 * (buffedConstitution $ stats)),
+  finalMaxMana = (buffedMaxMana stats) + (5 * (buffedWisdom $ stats)),
+  finalHealthRegen = (buffedHealthRegen stats) + (10 * (buffedWill stats)),
+  finalManaRegen = (buffedManaRegen stats) + (5 * (buffedWill stats)),
+  finalResist = buffedResist stats,
+  finalDamage = (buffedDamage stats) + (buffedStrength stats),
+  finalDefense = (buffedDefense stats) + (buffedDexterity stats),
+  finalAttack = (buffedAttack stats) + (buffedDexterity stats)
+ }
 -------------------------------------------------------------------------------
-{-
-   Weapon damage attack, and defense are bonuses only available on weapons.
-   They provide a cheaper way of getting damage, which also provides a balance
-   against powers that get free weapon damage via unarmed combat (claws, etc)
-   or summonable magical weapons (ethereal blades, etc)
-
-
-   If you use a real weapon, its weapon specific bonuses super important!!
--}
--------------------------------------------------------------------------------
-data Enchantment = MkEnchantment EnchantmentType Int deriving Show
-
--- get base radiation cost for each type of bonus
-enchantmentTypeCost :: EnchantmentType -> Int
-enchantmentTypeCost IntelligenceBonus = 40
-enchantmentTypeCost WisdomBonus = 40
-enchantmentTypeCost ConstitutionBonus = 40
-enchantmentTypeCost StrengthBonus = 40
-enchantmentTypeCost DexterityBonus = 40
-enchantmentTypeCost WillBonus = 40
-enchantmentTypeCost MaxHpBonus = 1
-enchantmentTypeCost MaxManaBonus = 2
-enchantmentTypeCost HealthRegenBonus = 1
-enchantmentTypeCost ManaRegenBonus = 2
-enchantmentTypeCost ResistBonus = 8
-enchantmentTypeCost DamageBonus = 10
-enchantmentTypeCost DefenseBonus = 5
-enchantmentTypeCost AttackBonus = 5
-enchantmentTypeCost AscendancyBonus = 4
-enchantmentTypeCost ProtectionBonus = 4
-enchantmentTypeCost WeaponDamageBonus = 6
-enchantmentTypeCost WeaponAttackBonus = 3
-enchantmentTypeCost WeaponDefenseBonus = 3
-
-enchantmentCost :: Enchantment -> Int
-enchantmentCost (MkEnchantment enchantmentType amount) =
- (enchantmentTypeCost enchantmentType) * amount
--------------------------------------------------------------------------------
-data ItemRarityType = Common | Uncommon | Rare deriving Show
-
-
 {-
 
 radiation reduction caused by depth ranges from 0 to 2% per level
@@ -126,107 +110,19 @@ A base above uncommon is common (89% chance)
 
 -}
 -------------------------------------------------------------------------------
-data BeginItem =
- BeginItem {
-  beginLocation :: Location,
-  beginEnchantments :: [Enchantment],
-  beginDepth :: Int -- the depth at which the item was retrieved (affects rad reduction generation!)
- }
- deriving Show
--------------------------------------------------------------------------------
-data Item =
- Item {
-  location :: Location,
-  enchantments :: [Enchantment],
-  depth :: Int,
-  depthRoll :: Double, -- (uniform 1.00~0.98)
-  depthFactor :: Double, -- (uniform 1.00~0.98)^depth factor applied to radiation due to depth (THIS IS RAD REDUCTION!)
-  rarity :: ItemRarityType,
-  radiation :: Int
- }
--------------------------------------------------------------------------------
-displayEnchantment :: Enchantment -> String
-displayEnchantment (MkEnchantment enchantmentType bonus) = (show enchantmentType) ++ "+" ++ (show bonus)
-
-displayEnchantments :: [Enchantment] -> String
-displayEnchantments [] = ""
-displayEnchantments (x:xs) = (displayEnchantment x) ++ "\n" ++ (displayEnchantments xs)
-
-displayDepth :: Item -> String
-displayDepth item = "You found it at level " ++ (show $ depth $ item) ++ " of the dungeon.\n"
-
-displayRadiation :: Item -> String
-displayRadiation item =
- "Total Radiation: " ++ (show $ radiation item) ++ "\n" ++
- "Radiation Reduction: " ++ (take 5 $ show $ (100.0 * (1.0 - (depthFactor item)))) ++ "%\n" -- always rounds down, which is good enough
-
-instance Show Item where
- show item =
-  let lineLength = 84 in
-  let title = ("A " ++ (show $ rarity $ item) ++ " " ++ (show $ location item)) in
-  let linesRemaining = 84 - (length $ title) in
-  let initialPadding = div linesRemaining 2 in
-  let finalPadding = linesRemaining - initialPadding in
-  let header = (replicate initialPadding '-') ++ title ++ (replicate finalPadding '-') in
-  header ++ "\n" ++ (displayDepth item) ++ (displayEnchantments $ enchantments item) ++ "\n" ++ (displayRadiation item) ++ (replicate lineLength '-')
--------------------------------------------------------------------------------
-instantiateItem :: (BeginItem, StdGen) -> (Item, StdGen)
-instantiateItem (beginItem, r) =
- let (roll :: Double, r') = random r in
- let dRoll = (roll / 50.0) + 0.98 in
- let dFactor = dRoll ** (fromIntegral $ beginDepth beginItem) in
- let dRarity = if dRoll >= 0.9822 then Common else if dRoll >= 0.9802 then Uncommon else Rare in
- let dBaseRadiation = fromIntegral (beginItemCost beginItem) in
- let dRadiation = round (dBaseRadiation * dFactor) in
- (Item {
-  location = beginLocation beginItem,
-  enchantments = beginEnchantments beginItem,
-  depth = beginDepth beginItem,
-  depthRoll = dRoll,
-  depthFactor = dFactor,
-  rarity = dRarity,
-  radiation = dRadiation
- }, r')
--------------------------------------------------------------------------------
-itemCost :: Item -> Int
-itemCost item = radiation item
--------------------------------------------------------------------------------
-beginItemCost :: BeginItem -> Int
-beginItemCost item = sum $ map enchantmentCost $ beginEnchantments item
--------------------------------------------------------------------------------
 data Player =
  Player {
   baseStats :: BaseStats,
+  modifiedStats :: ModifiedStats,
+  buffedStats :: BuffedStats,
+  finalStats :: FinalStats,
   damageTaken :: Int,
   manaUsed :: Int,
-  helmet :: Maybe Item,
-  torso :: Maybe Item,
-  pants :: Maybe Item,
-  rightRing :: Maybe Item,
-  leftRing :: Maybe Item,
-  belt :: Maybe Item,
-  scarf :: Maybe Item,
-  gloves :: Maybe Item,
-  socks :: Maybe Item,
-  boots :: Maybe Item,
-  shirt :: Maybe Item,
-
+  equipment :: Equipment,
   inventory :: [Item],
-
   level :: Int,
   xp :: Int,
-
--- computed values
-  maxHp :: Int,
-  maxMana :: Int,
-  healthRegen :: Int,
-  manaRegen :: Int,
-  resist :: Int,
-  damage :: Int,
-  defense :: Int,
-  attack :: Int,
-  protection :: Int,
-  ascendancy :: Int
+  charClass :: Class
  }
  deriving Show
 -------------------------------------------------------------------------------
@@ -234,231 +130,155 @@ itemItems :: Maybe Item -> [Item]
 itemItems Nothing = []
 itemItems (Just item) = [item]
 -------------------------------------------------------------------------------
-getEnchantments :: Player -> [Enchantment]
-getEnchantments p =
- let itemList = concat $ map itemItems [helmet p, torso p, pants p, rightRing p, leftRing p, belt p, scarf p, gloves p, socks p, boots p, shirt p] in
+getEnchantments :: Equipment -> [Enchantment]
+getEnchantments eq =
+ let l = [helmet eq, torso eq, pants eq, rightRing eq, leftRing eq, belt eq, scarf eq, gloves eq, socks eq, boots eq, shirt eq] in
+ let itemList = concat $ map itemItems $ l in
  concat $ map enchantments itemList
 -------------------------------------------------------------------------------
 -- maybe not the best algorithm....? (actually should I be caching this until it is updated?)
 
 -- currently only counts base stat bonuses!!!!
 
-captureEnchantments :: [Enchantment] -> BaseStats -> BaseStats
-captureEnchantments [] baseStats = trace ("base stats!!:" ++ (show baseStats)) $ baseStats
-captureEnchantments (x:xs) baseStats =
+captureEnchantments' :: [Enchantment] -> ModifiedStats -> ModifiedStats
+captureEnchantments' [] modifiedStats = modifiedStats
+captureEnchantments' (x:xs) modifiedStats =
  let MkEnchantment enchantmentType val = x in
- captureEnchantments xs $
-  case enchantmentType of
-   WisdomBonus -> baseStats {wisdom = val + (wisdom baseStats)}
-   ConstitutionBonus -> baseStats {constitution = val + (constitution baseStats)}
-   StrengthBonus -> baseStats {strength = val + (strength baseStats)}
-   DexterityBonus -> baseStats {dexterity = val + (dexterity baseStats)}
-   WillBonus -> baseStats {will = val + (will baseStats)}
-   _ -> baseStats -- IGNORE ALL OTHER BUFFS FOR NOW!
+ captureEnchantments' xs $
+ case enchantmentType of
+  IntelligenceBonus -> modifiedStats {modifiedIntelligence = val + (modifiedIntelligence modifiedStats)}
+  WisdomBonus -> modifiedStats {modifiedWisdom = val + (modifiedWisdom modifiedStats)}
+  ConstitutionBonus -> modifiedStats {modifiedConstitution = val + (modifiedConstitution modifiedStats)}
+  StrengthBonus -> modifiedStats {modifiedStrength = val + (modifiedStrength modifiedStats)}
+  DexterityBonus -> modifiedStats {modifiedDexterity = val + (modifiedDexterity modifiedStats)}
+  WillBonus -> modifiedStats {modifiedWill = val + (modifiedWill modifiedStats)}
+  MaxHpBonus -> modifiedStats {maxHp = val + (maxHp modifiedStats)}
+  MaxManaBonus -> modifiedStats {maxMana = val + (maxMana modifiedStats)}
+  HealthRegenBonus -> modifiedStats {healthRegen = val + (healthRegen modifiedStats)}
+  ManaRegenBonus -> modifiedStats {manaRegen = val + (manaRegen modifiedStats)}
+  ResistBonus -> modifiedStats {resist = val + (resist modifiedStats)}
+  DamageBonus -> modifiedStats {damage = val + (damage modifiedStats)}
+  DefenseBonus -> modifiedStats {defense = val + (defense modifiedStats)}
+  AttackBonus -> modifiedStats {attack = val + (attack modifiedStats)}
+  -- Treating weapon bonuses as affecting character, at least for now.
+  WeaponDamageBonus -> modifiedStats {damage = val + (damage modifiedStats)}
+  WeaponAttackBonus -> modifiedStats {attack = val + (attack modifiedStats)}
+  WeaponDefenseBonus -> modifiedStats {defense = val + (defense modifiedStats)}
 
 
-modifiedStats :: Player -> BaseStats
-modifiedStats p = captureEnchantments (getEnchantments p) (baseStats p)
+-- compute secondary bonuses afterwards...
+captureEnchantments :: [Enchantment] -> BaseStats -> ModifiedStats
+captureEnchantments enchantments baseStats =
+ captureEnchantments' enchantments $
+ ModifiedStats {
+  modifiedIntelligence = baseIntelligence baseStats,
+  modifiedWisdom = baseWisdom baseStats,
+  modifiedConstitution = baseConstitution baseStats,
+  modifiedStrength = baseStrength baseStats,
+  modifiedDexterity = baseDexterity baseStats,
+  modifiedWill = baseWill baseStats,
+  maxHp = 0,
+  maxMana = 0,
+  healthRegen = 0,
+  manaRegen = 0,
+  resist = 0,
+  damage = 0,
+  defense = 0,
+  attack = 0
+ }
+
+
+getModifiedStats :: Equipment -> BaseStats -> ModifiedStats
+getModifiedStats eq stats = captureEnchantments (getEnchantments eq) stats -- captureEnchantments (getEnchantments $ equipment p) (baseStats p)
 -------------------------------------------------------------------------------
-getPlayer' :: BaseStats -> Player
-getPlayer' baseStats =
+getPlayer :: BaseStats -> Player
+getPlayer baseStats =
+ let modifiedStats = captureEnchantments [] baseStats in
+ let buffedStats = emptyBuffedStats modifiedStats in
+ let finalStats = getFinalStats buffedStats in
  Player {
+  charClass = Avatar,
   baseStats = baseStats,
+  modifiedStats = modifiedStats,
+  buffedStats = buffedStats,
+  finalStats = finalStats,
   damageTaken = 0,
   manaUsed = 0,
-  helmet = Nothing,
-  torso = Nothing,
-  pants = Nothing,
-  rightRing = Nothing,
-  leftRing = Nothing,
-  belt = Nothing,
-  scarf = Nothing,
-  gloves = Nothing,
-  socks = Nothing,
-  boots = Nothing,
-  shirt = Nothing,
+  equipment = noEquipment,
   inventory = [],
-  maxHp = getMaxHp baseStats,
-  maxMana = getMaxMana baseStats,
-  healthRegen = getHealthRegen baseStats,
-  manaRegen = getManaRegen baseStats,
-  resist = getResist baseStats,
-  damage = getDamage baseStats,
-  defense = getDefense baseStats,
-  attack = getAttack baseStats,
-  protection = getProtection baseStats,
-  ascendancy = getAscendancy baseStats,
   level = 1,
   xp = 0
  }
-
-getPlayer :: BaseStats -> Player
-getPlayer baseStats =
- let p = getPlayer' baseStats in
- let s = modifiedStats p in
- p {
-  maxHp = getMaxHp s,
-  maxMana = getMaxMana s,
-  healthRegen = getHealthRegen s,
-  manaRegen = getManaRegen s,
-  resist = getResist s,
-  damage = getDamage s,
-  defense = getDefense s,
-  attack = getAttack s,
-  protection = getProtection s,
-  ascendancy = getAscendancy s
- }
-
+-------------------------------------------------------------------------------
+--refreshPlayer :: Player -> Player
+--refreshPlayer p = p {modifiedStats = getModifiedStats p}
+--
 refreshPlayer :: Player -> Player
 refreshPlayer p =
- let s = modifiedStats p in
- let rv = p {
-  maxHp = getMaxHp s,
-  maxMana = getMaxMana s,
-  healthRegen = getHealthRegen s,
-  manaRegen = getManaRegen s,
-  resist = getResist s,
-  damage = getDamage s,
-  defense = getDefense s,
-  attack = getAttack s,
-  protection = getProtection s,
-  ascendancy = getAscendancy s
- } in trace (show rv) $ rv
+ let m = getModifiedStats (equipment p) (baseStats p) in
+ let b = emptyBuffedStats m in
+ let f = getFinalStats b in
+ p {modifiedStats = m, buffedStats = b, finalStats = f}
 
-
+-------------------------------------------------------------------------------
 showPlayer :: Player -> IO ()
 showPlayer player = do
  putStrLn $ show $ baseStats $ player
+ putStrLn $ show $ modifiedStats $ player
  putStr "maxHp: "
- putStrLn $ show $ maxHp $ player
+ putStrLn $ show $ maxHp $ modifiedStats $ player
  putStr "maxMana: "
- putStrLn $ show $ maxMana $ player
+ putStrLn $ show $ maxMana $ modifiedStats $ player
  putStr "hp regen: "
- putStrLn $ show $ healthRegen $ player
+ putStrLn $ show $ healthRegen $ modifiedStats $ player
  putStr "mana regen: "
- putStrLn $ show $ manaRegen $ player
+ putStrLn $ show $ manaRegen $ modifiedStats $ player
  putStr "resist: "
- putStrLn $ show $ resist $ player
+ putStrLn $ show $ resist $ modifiedStats $ player
  putStr "damage: "
- putStrLn $ show $ damage $ player
+ putStrLn $ show $ damage $ modifiedStats $ player
  putStr "defense: "
- putStrLn $ show $ defense $ player
+ putStrLn $ show $ defense $ modifiedStats $ player
  putStr "attack: "
- putStrLn $ show $ attack $ player
- putStr "protection: "
- putStrLn $ show $ protection $ player
- putStr "ascendancy: "
- putStrLn $ show $ ascendancy $ player
- 
--------------------------------------------------------------------------------
-getMaxHp :: BaseStats -> Int
-getMaxHp baseStats =
- (15 * (constitution $ baseStats)) +
- (4 * (strength $ baseStats))
--------------------------------------------------------------------------------
-getMaxMana :: BaseStats -> Int
-getMaxMana baseStats =
- (1 * (intelligence $ baseStats)) +
- (3 * (wisdom $ baseStats))
--------------------------------------------------------------------------------
--- per minute
-getHealthRegen :: BaseStats -> Int
-getHealthRegen baseStats =
- (1 * (strength $ baseStats)) +
- (3 * (constitution $ baseStats)) +
- (5 * (will $ baseStats))
--------------------------------------------------------------------------------
--- per minute
-getManaRegen :: BaseStats -> Int
-getManaRegen baseStats =
- (1 * (intelligence $ baseStats)) +
- (3 * (wisdom $ baseStats)) +
- (5 * (will $ baseStats))
--------------------------------------------------------------------------------
-getResist :: BaseStats -> Int
-getResist baseStats =
- (2 * (constitution $ baseStats)) +
- (2 * (will $ baseStats))
--------------------------------------------------------------------------------
-getDamage :: BaseStats -> Int
-getDamage baseStats = (3 * (strength $ baseStats))
--------------------------------------------------------------------------------
-getPower :: BaseStats -> Int
-getPower baseStats = (3 * (intelligence $ baseStats))
--------------------------------------------------------------------------------
-getAttack :: BaseStats -> Int
-getAttack baseStats =
- (3 * (dexterity $ baseStats)) +
- (1 * (strength $ baseStats))
--------------------------------------------------------------------------------
-getDefense :: BaseStats -> Int
-getDefense baseStats =
- (3 * (dexterity $ baseStats)) +
- (1 * (constitution $ baseStats))
--------------------------------------------------------------------------------
-getAscendancy :: BaseStats -> Int
-getAscendancy baseStats =
- (3 * (wisdom $ baseStats)) +
- (1 * (strength $ baseStats)) +
- (1 * (constitution $ baseStats))
--------------------------------------------------------------------------------
-getProtection :: BaseStats -> Int
-getProtection baseStats =
- (3 * (will $ baseStats)) +
- (1 * (strength $ baseStats)) +
- (1 * (constitution $ baseStats))
+ putStrLn $ show $ attack $ modifiedStats $ player
 -------------------------------------------------------------------------------
 initialPlayer :: Player
 initialPlayer =
  getPlayer $
  BaseStats {
-  intelligence = 5,
-  wisdom = 5,
-  constitution = 5,
-  strength = 5,
-  dexterity = 5,
-  will = 5
+  baseIntelligence = 5,
+  baseWisdom = 5,
+  baseConstitution = 5,
+  baseStrength = 5,
+  baseDexterity = 5,
+  baseWill = 5
  }
 -------------------------------------------------------------------------------
 testMob :: Player
 testMob =
  getPlayer $
  BaseStats {
-  intelligence = 3,
-  wisdom = 3,
-  constitution = 5,
-  strength = 3,
-  dexterity = 3,
-  will = 2
+  baseIntelligence = 3,
+  baseWisdom = 3,
+  baseConstitution = 5,
+  baseStrength = 3,
+  baseDexterity = 3,
+  baseWill = 2
  }
 -------------------------------------------------------------------------------
 computeAccuracyAttack :: Player -> Player -> Double
-computeAccuracyAttack attacker defender =
- let a = fromIntegral $ attack attacker in -- getAttack $ baseStats $ attacker in
- let d = fromIntegral $ defense defender in -- getDefense $ baseStats $ defender in
+computeAccuracyAttack attacker defender = trace (show attacker) $ 
+ let a = fromIntegral $ finalAttack $ finalStats $ attacker in -- getAttack $ baseStats $ attacker in
+ let d = fromIntegral $ finalDefense $ finalStats $ defender in -- getDefense $ baseStats $ defender in
  if a+d == 0 then 0.5 else
  a / (a + d)
 -------------------------------------------------------------------------------
-computeAccuracySpell :: Player -> Player -> Double
-computeAccuracySpell caster defender =
- let ascendancy = fromIntegral $ getAscendancy $ baseStats $ caster in
- let protection = fromIntegral $ getProtection $ baseStats $ defender in
- if ascendancy == 0 && protection == 0 then 0.5 else
- ascendancy / (ascendancy + protection)
--------------------------------------------------------------------------------
 computeDamage :: Player -> Player -> Double
-computeDamage attacker defender =
- let d = fromIntegral $ damage attacker in -- getDamage $ baseStats $ attacker in
- let r = fromIntegral $ resist defender in -- getResist $ baseStats $ defender in
+computeDamage attacker defender = trace (show attacker) $
+ let d = fromIntegral $ finalDamage $ finalStats $ attacker in
+ let r = fromIntegral $ finalResist $ finalStats $ defender in
  if d+r == 0 then 0.5 else
  (d / (d + r)) * d
--------------------------------------------------------------------------------
-computePower :: Player -> Player -> Double
-computePower attacker defender =
- let power = fromIntegral $ getPower $ baseStats $ attacker in
- let resistance = fromIntegral $ getResist $ baseStats $ defender in
- if power == 0 && resistance == 0 then 0.5 else
- (power / (power + resistance)) * power
 -------------------------------------------------------------------------------
 
 --

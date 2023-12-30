@@ -13,6 +13,12 @@ import Data.List (intersperse)
 import Data.Char (isSpace)
 import Debug.Trace
 import Classes
+import Stats
+import Enchantment
+import Item
+import Equipment
+import Location
+import Game
 -------------------------------------------------------------------------------
 removeAt :: Int -> [a] -> [a]
 removeAt n xs = let (ys, zs) = splitAt n xs in ys ++ tail zs
@@ -43,14 +49,13 @@ tryWearItem g i =
    let heldItem = (inventory $ player $ g) !! i in
    case location heldItem of
     Belt ->
-     case belt $ player $ g of
+     case belt $ equipment $ player $ g of
       Nothing ->
        let items' = removeAt i $ inventory $ player $ g in
-       let p' = refreshPlayer ((player $ g) {belt = Just $ heldItem, inventory = items'}) in
-       trace ("CURRENT PLAYER MAX HP: " ++ (show $ maxHp $ p')) $ (g {player = p'}, ["You wrap the belt around your waist."])
+       let p' = refreshPlayer ((player $ g) {inventory = items', equipment = (equipment $ player $ g) {belt = Just $ heldItem}}) in
+       trace ("CURRENT PLAYER MAX HP: " ++ (show $ finalMaxHp $ finalStats $ p')) $ (g {player = p'}, ["You wrap the belt around your waist."])
       Just _ -> (g, ["You are already wearing a belt."])
     _ -> undefined
-
 -------------------------------------------------------------------------------
 tryWearScarf :: MVar Game -> IO ()
 tryWearScarf m = pure ()
@@ -76,16 +81,15 @@ createBelt m = do
  let (belt, r') = instantiateItem (beginBelt, r)
  putMVar m (g {rnd = r', nearbyItems = belt:(nearbyItems g)})
  pure ()
-
-
+-------------------------------------------------------------------------------
 trim :: String -> String
 trim = f . f
    where f = reverse . dropWhile isSpace
-
+-------------------------------------------------------------------------------
 listInventory :: [Item] -> String
 listInventory [] = ""
 listInventory (x:xs) = (show x) ++ "\n" ++ (listInventory xs)
-
+-------------------------------------------------------------------------------
 handleCommand' :: Game -> String -> (Game, [String])
 handleCommand' game "heal" = (game, ["\ESC[38;5;254mYou open your hand and cast a healing incantation, healing \ESC[36m"++(show 6)++"\ESC[38;5;254m hp\ESC[0m"])
 handleCommand' game "enter" = (game {mobSlain=False, mob = (mob game) {damageTaken=0}}, ["\ESC[38;5;254mYou open a door and enter the next room.\ESC[0m"])
@@ -93,7 +97,7 @@ handleCommand' game "help legendary blademaster" = (game, ["\ESC[38;5;254m"++(le
 handleCommand' game "help final form" = (game, ["\ESC[38;5;254m"++(finalFormHelp)++"\ESC[0m"])
 handleCommand' game "help ethereal blade" = (game, ["\ESC[38;5;254m"++(etherealBladeHelp)++"\ESC[0m"])
 handleCommand' game "inventory" = (game, ["\ESC[38;5;254m"++(listInventory $ inventory $ player $ game)++"\ESC[0m"])
-handleCommand' game "eq" = (game, ["\ESC[38;5;254m"++(show $ belt $ player $ game)++"\ESC[0m"])
+handleCommand' game "eq" = (game, ["\ESC[38;5;254m"++(show $ belt $ equipment $ player $ game)++"\ESC[0m"])
 handleCommand' game "get belt" =
  if (length $ nearbyItems $ game) == 0
   then  (game, ["\ESC[38;5;254m"++("No such item nearby")++"\ESC[0m"])
@@ -107,16 +111,16 @@ handleCommand' game msg =
     Nothing -> (game, ["Error parsing " ++ (drop 4 msg) ++ "\nPlease enter a number corresponding to the index in your inventory (0-indexed)"])
     Just i -> tryWearItem game i
   else (game, [])
-
+-------------------------------------------------------------------------------
 handleCommands'' :: Game -> [String] -> [String] -> (Game, [String])
 handleCommands'' game [] acc = (game, acc)
 handleCommands'' game (x:xs) acc =
  let (g', msgs) = handleCommand' game x in
  handleCommands'' g' xs (acc ++ msgs)
-
+-------------------------------------------------------------------------------
 handleCommands' :: Game -> [String] -> (Game, [String])
 handleCommands' game commands = handleCommands'' game commands []
-
+-------------------------------------------------------------------------------
 parseMessage :: String -> String -- don't properly unescape yet
 parseMessage "heal" = "\ESC[32mheal\ESC[0m OK"
 parseMessage "attack" = "\ESC[32mattack\ESC[0m OK"
@@ -127,11 +131,10 @@ parseMessage "inventory" = "\ESC[32minventory\ESC[0m OK"
 parseMessage "get belt" = "\ESC[32mget belt\ESC[0m OK"
 parseMessage "eq" = "\ESC[32meq\ESC[0m OK"
 
-
 parseMessage msg =
  if take 4 msg == "wear" then "\ESC[32mwear\ESC[0m OK"
   else "\ESC[31mUnknown command "++msg++"\ESC[0m"
-
+-------------------------------------------------------------------------------
 prompt :: Game -> String
 prompt game =
  let spaces = 40 in
@@ -141,27 +144,26 @@ prompt game =
  (manaBar $ player game) ++
  "    Target " ++
  (healthBar $ mob game)
-
+-------------------------------------------------------------------------------
 putProgress :: String -> IO ()
 putProgress s = hPutStr stderr $ "\r\ESC[K" ++ s
-
-
+-------------------------------------------------------------------------------
 healthBar :: Player -> String
 healthBar player =
- let maxHp = getMaxHp $ baseStats $ player in
+ let maxHp = finalMaxHp $ finalStats $ player in
  let damage = damageTaken $ player in
  if (damage * 2 > maxHp)
   then
  "HP \ESC[31m" ++ (show (maxHp - damage)) ++ "\ESC[0m/\ESC[31m" ++ (show maxHp) ++ "\ESC[0m"
  else
  "HP \ESC[32m" ++ (show (maxHp - damage)) ++ "\ESC[0m/\ESC[32m" ++ (show maxHp) ++ "\ESC[0m"
-
+-------------------------------------------------------------------------------
 manaBar :: Player -> String
 manaBar player =
- let maxMana = getMaxMana $ baseStats $ player in
+ let maxMana = finalMaxMana $ finalStats $ player in
  let used = manaUsed player in
  "Mana \ESC[34m" ++ (show (maxMana - used)) ++ "\ESC[0m/\ESC[34m" ++ (show maxMana) ++ "\ESC[0m"
-
+-------------------------------------------------------------------------------
 drawProgressBar :: MVar Game -> [String] -> Int -> Int -> Rational -> IO String
 drawProgressBar m gameMessages hp width progress = do
   game <- takeMVar m
@@ -173,10 +175,10 @@ drawProgressBar m gameMessages hp width progress = do
    else pure ((concat $ intersperse "\n" messages) ++ "\n" ++ (prompt g'))
   where bars = 0
         spaces = width - bars
-
+-------------------------------------------------------------------------------
 drawPercentage :: String -> Rational -> String
 drawPercentage currentCommand progress = (printf "%3d%%" (truncate (progress * 100) :: Int)) ++ "\r" ++ currentCommand
-
+-------------------------------------------------------------------------------
 main :: IO ()
 main = do
   hSetBuffering stdin NoBuffering 
@@ -187,7 +189,7 @@ main = do
   putMVar m $ game
   forkIO $ userInput m
   fightMob m
-
+-------------------------------------------------------------------------------
 fightMob :: MVar Game -> IO ()
 fightMob m = do
     _game' <- takeMVar m
@@ -209,7 +211,7 @@ fightMob m = do
     putMVar m $ ggg
     threadDelay 250000
     fightMob m
-
+-------------------------------------------------------------------------------
 idle :: MVar Game -> IO ()
 idle m = do
  threadDelay 250000
@@ -222,8 +224,7 @@ idle m = do
  if mobSlain g'
   then {-trace "mob is dead" $-} idle m
   else trace ("beginning to fight next mob" ++ (show $ player g')) $ fightMob m
-
-
+-------------------------------------------------------------------------------
 handleDrop :: MVar Game -> IO ()
 handleDrop m = do
  game <- takeMVar m
@@ -243,7 +244,7 @@ handleDrop m = do
  putStrLn (show $ nearbyItems _g)
  putMVar m _g
  idle m
-
+-------------------------------------------------------------------------------
 userInput :: MVar Game -> IO ()
 userInput m = do
  -- v <- readLn :: IO String
@@ -268,19 +269,6 @@ userInput m = do
     userInput m
  -- putMVar m $ game {currentCommand = (if v /= '\DEL' then command ++ [v] else take ((length command) - 1) command)}
 -------------------------------------------------------------------------------
-data Game =
- Game {
---  worldLocation :: WorldLocation,
-  rnd :: StdGen,
-  player :: Player,
-  mob :: Player,
-  mobSlain :: Bool,
-  currentCommand :: String,
-  commandQueue :: [String],
-  messageQueue :: [String],
-  nearbyItems :: [Item]
- }
--------------------------------------------------------------------------------
 data WorldLocation
  = FightingMob
  | KilledMob -- perhaps more to come!?
@@ -304,7 +292,7 @@ attacks game = do
   then do
    let damage = round $ computeDamage (player game) (mob game) -- NO DAMAGE ROLL YET, ALWAYS DO FULL DAMAGE!
    let mob' = (mob game) {damageTaken = (damageTaken $ mob game) + damage}
-   if damageTaken mob' >= (getMaxHp $ baseStats $ mob game)
+   if damageTaken mob' >= (finalMaxHp $ finalStats $ mob game)
     then
      pure (game {rnd = g', mob = mob', mobSlain = True}, ["hit!", "mob slain!"])
     else

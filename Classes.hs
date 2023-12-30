@@ -17,11 +17,24 @@ serializeHelp helpFile =
  title ++ "\n" ++ (helpText helpFile) ++ "\n" ++ (replicate lineLength '-')
 --
 --
-data Classes -- perhaps more later!!
- = Lich
- | Werewolf
- | Vampire
+data Class -- perhaps more later!!
+ = Avatar -- unclassed
+ | Lich LichPowers
+ | Werewolf WerewolfPowers
+ | Vampire VampirePowers
+ deriving Show
 -------------------------------------------------------------------------------
+data LichPowers =
+ LichPowers {
+  etherealBlade :: Int,
+  magician :: Int,
+  archmage :: Int,
+  martialArtist :: Int,
+  manaShield :: Int,
+  deathKnight :: Int
+ } deriving Show
+
+{-
 data LichPowers
  = LegendaryBlademaster -- bonus crit damage
  | EtherealBlade -- summon a 0 rad blade that gains power as you get kills
@@ -30,6 +43,7 @@ data LichPowers
  | MartialArtist -- Your dexterity grants additional bonuses
  | ManaShield -- Divert some of your maximum mana to provide additional defense and protection
  | DeathKnight -- Your ethereal blade gains additional bonuses every time it crits
+-}
 -------------------------------------------------------------------------------
 martialArtistHelpFile :: HelpFile
 martialArtistHelpFile =
@@ -201,16 +215,18 @@ bladestormHelpFile =
 -------------------------------------------------------------------------------
 -- critical strikes should also bypass resistance! (huge help against very high resist enemies; otherwise on average another 2x approximately)
 -------------------------------------------------------------------------------
-data WerewolfPowers
- = NaturalFortitude -- You have additional resistance
- | SupernaturalHealing -- You have additional regeneration
- | ClawsOfAttack -- You have a powerful unarmed attack
- | WolfForm -- Gain massive resistances and damage; prevents use of most item slots (separate inventory).
- | BearSpirit -- Gain bonuses at low health; prevents use of other spirit powers
- | FoxSpirit -- Gain additional defense; prevents use of other spirit powers
- | SharkSpirit -- Your attacks heal you; prevents use of other spirit powers
- | PenguinSpirit -- Gain massive resistances; prevents use of other spirit powers
- | Shamanism -- Gain access to a variety of spells
+data WerewolfPowers =
+ WerewolfPowers {
+  naturalFortitude :: Int, -- You have additional resistance
+  supernaturalHealing :: Int, -- You have additional regeneration
+  clawsOfAttack :: Int, -- You have a powerful unarmed attack
+  wolfForm :: Int, -- Gain massive resistances and damage; prevents use of most item slots (separate inventory).
+  bearSpirit :: Int, -- Gain bonuses at low health; prevents use of other spirit powers
+  foxSpirit :: Int, -- Gain additional defense; prevents use of other spirit powers
+  sharkSpirit :: Int, -- Your attacks heal you; prevents use of other spirit powers
+  penguinSpirit :: Int, -- Gain massive resistances; prevents use of other spirit powers
+  shamanism :: Int -- Gain access to a variety of spells
+ } deriving Show
 -------------------------------------------------------------------------------
 foxSpiritHelpFile :: HelpFile
 foxSpiritHelpFile =
@@ -256,14 +272,16 @@ shamanismHelpFile =
    "At level 100, you gain the endurance ability.\n"
  }
 -------------------------------------------------------------------------------
-data VampirePowers
- = BloodShield -- Your blood power fuels a massive shield
- | ChiropteranHearing -- You have additional defense
- | NightBlade -- Summon a 0 rad blade fueled by your blood power
- | BloodFanatic -- You gain blood power from your kills
- | Infusion -- Divert some of your maximum mana to your damage
- | LifeAffinity -- Gain a massive bonus to health regen, prevents training of undead form
- | UndeathAffinity -- Gain a massive bonus to mana regen, prevents training of living form
+data VampirePowers =
+ VampirePowers {
+  bloodShield :: Int, -- Your blood power fuels a massive shield
+  chiropteranHearing :: Int, -- You have additional defense
+  nightBlade :: Int, -- Summon a 0 rad blade fueled by your blood power
+  bloodFanatic :: Int, -- You gain blood power from your kills
+  infusion :: Int, -- Divert some of your maximum mana to your damage
+  lifeAffinity :: Int, -- Gain a massive bonus to health regen, prevents training of undead form
+  undeathAffinity :: Int -- Gain a massive bonus to mana regen, prevents training of living form
+ } deriving Show
 -------------------------------------------------------------------------------
 bloodFanaticHelpFile :: HelpFile
 bloodFanaticHelpFile =
