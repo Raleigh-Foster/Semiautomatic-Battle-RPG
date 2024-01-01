@@ -23,14 +23,14 @@ emptyBuffedStats modifiedStats =
   buffedStrength = modifiedStrength modifiedStats,
   buffedDexterity = modifiedDexterity modifiedStats,
   buffedWill = modifiedWill modifiedStats,
-  buffedMaxHp = 0,
-  buffedMaxMana = 0,
-  buffedHealthRegen = 0,
-  buffedManaRegen = 0,
-  buffedResist = 0,
-  buffedDamage = 0,
-  buffedDefense = 0,
-  buffedAttack = 0
+  buffedMaxHp = maxHp modifiedStats,
+  buffedMaxMana = maxMana modifiedStats,
+  buffedHealthRegen = healthRegen modifiedStats,
+  buffedManaRegen = manaRegen modifiedStats,
+  buffedResist = resist modifiedStats,
+  buffedDamage = damage modifiedStats,
+  buffedDefense = defense modifiedStats,
+  buffedAttack = attack modifiedStats
  }
 -------------------------------------------------------------------------------
 --関数
@@ -122,7 +122,8 @@ data Player =
   inventory :: [Item],
   level :: Int,
   xp :: Int,
-  charClass :: Class
+  charClass :: Class,
+  stale :: Bool -- used for graphics
  }
  deriving Show
 -------------------------------------------------------------------------------
@@ -207,7 +208,8 @@ getPlayer baseStats =
   equipment = noEquipment,
   inventory = [],
   level = 1,
-  xp = 0
+  xp = 0,
+  stale = True
  }
 -------------------------------------------------------------------------------
 --refreshPlayer :: Player -> Player
@@ -218,7 +220,7 @@ refreshPlayer p =
  let m = getModifiedStats (equipment p) (baseStats p) in
  let b = emptyBuffedStats m in
  let f = getFinalStats b in
- p {modifiedStats = m, buffedStats = b, finalStats = f}
+ p {modifiedStats = m, buffedStats = b, finalStats = f, stale = True}
 
 -------------------------------------------------------------------------------
 showPlayer :: Player -> IO ()
@@ -267,14 +269,14 @@ testMob =
  }
 -------------------------------------------------------------------------------
 computeAccuracyAttack :: Player -> Player -> Double
-computeAccuracyAttack attacker defender = trace (show attacker) $ 
+computeAccuracyAttack attacker defender =
  let a = fromIntegral $ finalAttack $ finalStats $ attacker in -- getAttack $ baseStats $ attacker in
  let d = fromIntegral $ finalDefense $ finalStats $ defender in -- getDefense $ baseStats $ defender in
  if a+d == 0 then 0.5 else
  a / (a + d)
 -------------------------------------------------------------------------------
 computeDamage :: Player -> Player -> Double
-computeDamage attacker defender = trace (show attacker) $
+computeDamage attacker defender =
  let d = fromIntegral $ finalDamage $ finalStats $ attacker in
  let r = fromIntegral $ finalResist $ finalStats $ defender in
  if d+r == 0 then 0.5 else

@@ -46,8 +46,8 @@ tryWearLeftRing m = pure ()
 wearBelt :: Game -> Item -> (Game, [String])
 wearBelt g item =
  let (g', u) = removeBelt g in
- let p' = refreshPlayer ((player $ g) {equipment = (equipment $ player $ g) {belt = Just $ item}}) in
- (g' {player = p'}, ["You fasten the belt around your waist."])
+ let p' = refreshPlayer ((player $ g') {equipment = (equipment $ player $ g') {belt = Just $ item}}) in
+ (g' {player = p'}, u ++ ["You fasten the belt around your waist."])
   
 
 tryWearItem :: Game -> Int -> (Game, [String])
@@ -61,15 +61,6 @@ tryWearItem g i =
     Belt ->
      let items' = removeAt i $ inventory $ player $ g in
      wearBelt (g {player = (player g) {inventory = items'}}) heldItem
-{-
-     case belt $ equipment $ player $ g of
-      Nothing ->
-       let items' = removeAt i $ inventory $ player $ g in
-       let p' = refreshPlayer ((player $ g) {inventory = items', equipment = (equipment $ player $ g) {belt = Just $ heldItem}}) in
-       trace ("CURRENT PLAYER MAX HP: " ++ (show $ finalMaxHp $ finalStats $ p')) $ (g {player = p'}, ["You wrap the belt around your waist."])
-      Just _ -> (g, ["You are already wearing a belt."])
-       --let (g', update) = removeBelt g in (g', ["You are already wearing a belt."] ++ update) in
-       --let (g'', u) = tryWearItem (WRONG INDEX!!!)-}
     _ -> undefined
 -------------------------------------------------------------------------------
 removeBelt :: Game -> (Game, [String])
@@ -79,7 +70,7 @@ removeBelt g =
   Just b ->
    let items' = b:(inventory $ player $ g) in
    let p' = refreshPlayer ((player $ g) {equipment = (equipment $ player $ g) {belt = Nothing}, inventory = items'}) in
-   (g, ["You remove your belt, and place it in your inventory."])
+   (g {player = p'}, ["You remove your belt, and place it in your inventory."])
 -------------------------------------------------------------------------------
 tryWearScarf :: MVar Game -> IO ()
 tryWearScarf m = pure ()
@@ -133,26 +124,13 @@ commandFunction =
  [("heal", \g -> (g, ["\ESC[38;5;254mYou open your hand and cast a healing incantation, healing \ESC[36m"++(show 6)++"\ESC[38;5;254m hp\ESC[0m"])),
   ("enter", \g -> (g {mobSlain=False, mob = (mob g) {damageTaken=0}, nearbyItems = []}, ["\ESC[38;5;254mYou open a door and enter the next room.\ESC[0m"])),
   ("help legendary blademaster", \g -> (g, ["\ESC[38;5;254m"++(legendaryBlademasterHelp)++"\ESC[0m"])),
-  ("inventory", \g -> (g, ["\ESC[38;5;254m"++(listInventory $ inventory $ player $ g)++"\ESC[0m"])),
+  ("inventory", \g -> (g, ["\ESC[38;5;254m"++("Here are your items\n")++(listInventory $ inventory $ player $ g)++"\ESC[0m"])),
   ("equipment", \g -> (g, ["\ESC[38;5;254m"++(show $ belt $ equipment $ player $ g)++"\ESC[0m"])),
   ("get belt", \g -> if (length $ nearbyItems $ g) == 0 then (g, ["\ESC[38;5;254m"++("No such item nearby")++"\ESC[0m"]) else (g {player = (player g) {inventory = (head $ nearbyItems $ g):(inventory $ player $ g)}, nearbyItems = tail $ nearbyItems g}, ["\ESC[38;5;254m"++("You pick up a belt.")++"\ESC[0m"]))
   ]
 
 
 handleCommand' :: Game -> String -> (Game, [String])
-{-
-handleCommand' game "heal" = (game, ["\ESC[38;5;254mYou open your hand and cast a healing incantation, healing \ESC[36m"++(show 6)++"\ESC[38;5;254m hp\ESC[0m"])
-handleCommand' game "enter" = (game {mobSlain=False, mob = (mob game) {damageTaken=0}, nearbyItems = []}, ["\ESC[38;5;254mYou open a door and enter the next room.\ESC[0m"])
-handleCommand' game "help legendary blademaster" = (game, ["\ESC[38;5;254m"++(legendaryBlademasterHelp)++"\ESC[0m"])
-handleCommand' game "help final form" = (game, ["\ESC[38;5;254m"++(finalFormHelp)++"\ESC[0m"])
-handleCommand' game "help ethereal blade" = (game, ["\ESC[38;5;254m"++(etherealBladeHelp)++"\ESC[0m"])
-handleCommand' game "inventory" = (game, ["\ESC[38;5;254m"++("Here are your items:\n")++(listInventory $ inventory $ player $ game)++"\ESC[0m"])
-handleCommand' game "eq" = (game, ["\ESC[38;5;254m"++(show $ belt $ equipment $ player $ game)++"\ESC[0m"])
-handleCommand' game "get belt" =
- if (length $ nearbyItems $ game) == 0
-  then  (game, ["\ESC[38;5;254m"++("No such item nearby")++"\ESC[0m"])
-  else  (game {player = (player game) {inventory = (head $ nearbyItems $ game):(inventory $ player $ game)}, nearbyItems = tail $ nearbyItems game}, ["\ESC[38;5;254m"++("You pick up a belt.")++"\ESC[0m"])
--}
 handleCommand' game msg =
  case H.lookup msg commandName of
   Just foundCommand ->
@@ -253,8 +231,12 @@ fightMob m = do
     if mobSlain _game' then do
     s <- drawProgressBar m [] 0 40 0
     game' <- takeMVar m
-    putProgress (s ++ " " ++ drawPercentage (currentCommand game') 0)
-    putMVar m $ game'
+    if (stale $ player $ game')
+     then do
+      putStrLn "DRAWING!"
+      putProgress (s ++ " " ++ drawPercentage (currentCommand game') 0)
+      putMVar m $ (game' {player = (player game') {stale = False}})
+     else putMVar m $ game'
     handleDrop m
     else do
     gg <- takeMVar m
@@ -275,27 +257,29 @@ idle m = do
  putMVar m $ g -- {commandQueue = []}
  s <- drawProgressBar m [] 0 40 0
  g' <- takeMVar m
- putProgress (s ++ " " ++ drawPercentage (currentCommand g') 0)
- putMVar m g'
+ if (stale $ player $ g')
+  then do
+   putProgress (s ++ " " ++ drawPercentage (currentCommand g') 0)
+   putMVar m (g' {player = (player g') {stale = False}})
+  else do
+   putMVar m g'
  if mobSlain g'
-  then {-trace "mob is dead" $-} idle m
-  else trace ("beginning to fight next mob" ++ (show $ player g')) $ fightMob m
+  then idle m
+  else fightMob m
 -------------------------------------------------------------------------------
 handleDrop :: MVar Game -> IO ()
 handleDrop m = do
  game <- takeMVar m
  let (dropRoll :: Double, rnd') = random $ rnd game
- putStrLn "The goblin sublimates into a purple cloud of swirling mist."
- putStrLn "As the mist begins to dissipate, some instead coalesces and desublimates into a belt."
+ let msg = ["The goblin sublimates into a purple cloud of swirling mist.", "As the mist begins to dissipate, some instead coalesces and desublimates into a belt."]
  if dropRoll > 0.99 then do
-  putStrLn "A rare belt drops to the ground a few feet in front of you."
+  putMVar m $ game {rnd = rnd', messageQueue = (messageQueue game) ++ msg ++ ["A rare belt drops to the ground a few feet in front of you."]}
  else if dropRoll > 0.9 then do
-  putStrLn "An uncommon belt drops to the ground a few feet in front of you."
+  putMVar m $ game {rnd = rnd', messageQueue = (messageQueue game) ++ msg ++ ["An uncommon belt drops to the ground a few feet in front of you."]}
  else do
-  putStrLn "A common belt drops to the ground a few feet in front of you."
- putMVar m $ game {rnd = rnd'{-, mobSlain=False, mob = (mob game) {damageTaken=0}-}}
+  putMVar m $ game {rnd = rnd', messageQueue = (messageQueue game) ++ msg ++ ["A common belt drops to the ground a few feet in front of you."]}
+ -- putMVar m $ game {rnd = rnd'}
  createBelt m
- putStrLn "should drop a helmet??! (maybe belt right? lol)"
  _g <- takeMVar m
  putStrLn (show $ nearbyItems _g)
  putMVar m _g
