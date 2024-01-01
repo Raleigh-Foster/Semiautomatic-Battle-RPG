@@ -34,12 +34,12 @@ data EnchantmentType
 data Enchantment = MkEnchantment EnchantmentType Int deriving Show
 -------------------------------------------------------------------------------
 enchantmentTypeCost :: EnchantmentType -> Int
-enchantmentTypeCost IntelligenceBonus = 40
-enchantmentTypeCost WisdomBonus = 40
-enchantmentTypeCost ConstitutionBonus = 40
-enchantmentTypeCost StrengthBonus = 40
-enchantmentTypeCost DexterityBonus = 40
-enchantmentTypeCost WillBonus = 40
+enchantmentTypeCost IntelligenceBonus = 20
+enchantmentTypeCost WisdomBonus = 20
+enchantmentTypeCost ConstitutionBonus = 20
+enchantmentTypeCost StrengthBonus = 20
+enchantmentTypeCost DexterityBonus = 20
+enchantmentTypeCost WillBonus = 20
 enchantmentTypeCost MaxHpBonus = 1
 enchantmentTypeCost MaxManaBonus = 2
 enchantmentTypeCost HealthRegenBonus = 1
